@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Visor 3D — Webstudio</title>
+<script>
+window.CONFIG = {
+  splat:    'moto-scan.sog',
+  rotacion: [180, 0, 0],
+  usarEscenario: true,
+  modelo:      'base-cilindro.glb',
+  texturaPared:'domo360.jpg',
+  texturaPiso: 'piso.jpg',
+
+  altura:0, rotZ:0, escala:5,
+  alturaCilindro:1,     // 1 = altura original del cilindro; <1 baja el techo
+  paredOffsetY:0,       // desplaza la textura vertical (sin repetir)
+  fadeInicio:0.55,      // desde qué altura (0=piso,1=techo) empieza el fade a negro
+  fadeSuavidad:0.35,    // qué tan gradual es el fade (0=corte duro, alto=muy suave)
+  fadeFuerza:1,         // cuánto negro (0 a 1)
+  pisoFeather:0.35,     // desvanecido del borde del piso
+  pisoOpacidad:1,       // opacidad general del piso
+  blur:0,
+  sombra:true,
+
+  marca:'Webstudio 3D', titulo:'Yamaha XTZ 250', subtitulo:'Enduro / Trail', precio:'USD 4.800',
+  datos:{ 'Año':'2021','Kilómetros':'18.500 km','Cilindrada':'250 cc','Estado':'Excelente' },
+  descripcion:'',
+  autoRotar:true, velocidadGiro:12,
+};
+</script>
+<style>
+  :root{ --marca:#2563EB; --celeste:#38BDF8; --ambar:#F5B544; --texto:#F8FAFC; --tenue:#94A3B8;
+    --panel:rgba(10,13,18,.62); --borde:rgba(255,255,255,.09); }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;}
+  #fondo{position:fixed;inset:0;background:#000;}
+  canvas{position:fixed;inset:0;width:100%;height:100%;outline:none;touch-action:none;}
+  #ficha{position:fixed;left:22px;top:22px;z-index:15;max-width:310px;background:var(--panel);
+    backdrop-filter:blur(14px);border:1px solid var(--borde);border-radius:16px;padding:18px 20px;
+    color:var(--texto);box-shadow:0 8px 40px rgba(0,0,0,.4);transition:opacity .4s,transform .4s;}
+  #ficha.oculto{opacity:0;transform:translateY(-8px);pointer-events:none;}
+  #ficha .et{font-size:10.5px;letter-spacing:.16em;color:var(--celeste);font-weight:600;text-transform:uppercase;margin-bottom:9px;}
+  #ficha h1{font-size:21px;font-weight:600;line-height:1.15;margin-bottom:3px;}
+  #ficha .sub{font-size:13px;color:var(--tenue);margin-bottom:14px;}
+  #ficha .datos{display:flex;flex-direction:column;border-top:1px solid var(--borde);padding-top:12px;}
+  #ficha .fila{display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;}
+  #ficha .fila .k{color:var(--tenue);} #ficha .fila .v{color:var(--texto);font-weight:500;text-align:right;}
+  #ficha .precio{margin-top:12px;padding-top:12px;border-top:1px solid var(--borde);display:flex;justify-content:space-between;}
+  #ficha .precio .k{color:var(--tenue);font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+  #ficha .precio .v{color:var(--ambar);font-size:20px;font-weight:700;}
+  #ficha .desc{margin-top:14px;padding-top:13px;border-top:1px solid var(--borde);font-size:12.5px;line-height:1.55;color:#cbd3de;}
+  #controles{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:15;display:flex;gap:6px;
+    padding:7px;border-radius:14px;background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--borde);}
+  #controles button{width:40px;height:40px;border:0;border-radius:9px;cursor:pointer;background:transparent;color:var(--texto);
+    display:flex;align-items:center;justify-content:center;transition:background .15s;}
+  #controles button:hover{background:rgba(255,255,255,.09);}
+  #controles button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+  #controles .sep{width:1px;background:var(--borde);margin:6px 2px;} #controles button.activo{background:var(--marca);}
+  #ajustes{position:fixed;right:22px;top:22px;z-index:15;width:240px;max-height:calc(100vh - 44px);overflow-y:auto;
+    background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--borde);border-radius:14px;padding:15px 16px;color:var(--texto);transition:opacity .3s;}
+  #ajustes.oculto{opacity:0;pointer-events:none;}
+  #ajustes h3{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--celeste);font-weight:600;margin-bottom:13px;display:flex;justify-content:space-between;align-items:center;}
+  #ajustes .grupo{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--tenue);margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--borde);}
+  #ajustes .grupo:first-of-type{border-top:0;padding-top:0;margin-top:0;}
+  #ajustes .cerrar{cursor:pointer;color:var(--tenue);font-size:14px;}
+  #ajustes .campo{margin-bottom:11px;}
+  #ajustes label{display:flex;justify-content:space-between;font-size:12px;color:var(--tenue);margin-bottom:5px;}
+  #ajustes label b{color:var(--texto);font-weight:600;}
+  #ajustes input[type=range]{width:100%;accent-color:var(--marca);cursor:pointer;}
+  #ajustes .nota{font-size:10.5px;color:var(--tenue);line-height:1.45;margin-top:10px;border-top:1px solid var(--borde);padding-top:9px;}
+  #btn-ajustes{position:fixed;right:22px;top:22px;z-index:14;width:40px;height:40px;border:0;border-radius:10px;cursor:pointer;
+    background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--borde);color:var(--texto);display:none;align-items:center;justify-content:center;}
+  #btn-ajustes svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;}
+  #pista{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:14;font-size:12px;color:var(--tenue);
+    background:rgba(10,13,18,.5);padding:6px 13px;border-radius:999px;border:1px solid var(--borde);transition:opacity .5s;pointer-events:none;}
+  #pista.oculto{opacity:0;}
+  #carga{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:20;transition:opacity .6s;}
+  #carga.oculto{opacity:0;pointer-events:none;}
+  .anillo{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:var(--marca);animation:girar .9s linear infinite;}
+  @keyframes girar{to{transform:rotate(360deg);}}
+  #carga .pct{color:var(--texto);font-size:15px;font-weight:500;} #carga .sub{color:var(--tenue);font-size:12.5px;}
+  #err{position:fixed;inset:0;display:none;z-index:30;align-items:center;justify-content:center;padding:32px;text-align:center;background:#0a0c10;color:#F8FAFC;}
+  #err div{max-width:430px;line-height:1.6;} #err .t{font-size:17px;font-weight:600;margin-bottom:10px;} #err .d{font-size:13.5px;color:var(--tenue);}
+  @media(max-width:560px){ #ficha{left:12px;top:12px;right:12px;max-width:none;padding:14px 16px;} #ajustes,#btn-ajustes{display:none!important;} }
+</style>
+</head>
+<body>
+<div id="fondo"></div>
+<div id="ficha"></div>
+<button id="btn-ajustes" title="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z"/></svg></button>
+<div id="ajustes" class="oculto">
+  <h3>Ajustes del escenario <span class="cerrar" id="cerrar-ajustes">✕</span></h3>
+  <div class="grupo">General</div>
+  <div class="campo"><label>Altura <b id="v-alt">0</b></label><input id="s-alt" type="range" min="-2000" max="2000" step="1" value="0"></div>
+  <div class="campo"><label>Rotación Z <b id="v-rot">0°</b></label><input id="s-rot" type="range" min="0" max="360" step="1" value="0"></div>
+  <div class="campo"><label>Escala general <b id="v-esc">5.0</b></label><input id="s-esc" type="range" min="0.2" max="25" step="0.1" value="5"></div>
+  <div class="grupo">Cilindro (paredes)</div>
+  <div class="campo"><label>Altura del cilindro <b id="v-hc">1.00</b></label><input id="s-hc" type="range" min="0.1" max="2" step="0.02" value="1"></div>
+  <div class="campo"><label>Offset textura up-down <b id="v-poy">0.00</b></label><input id="s-poy" type="range" min="-0.5" max="0.5" step="0.005" value="0"></div>
+  <div class="campo"><label>Fade inicio <b id="v-fi">0.55</b></label><input id="s-fi" type="range" min="0" max="1" step="0.01" value="0.55"></div>
+  <div class="campo"><label>Fade suavidad <b id="v-fs">0.35</b></label><input id="s-fs" type="range" min="0.01" max="1" step="0.01" value="0.35"></div>
+  <div class="campo"><label>Fade fuerza <b id="v-ff">1.00</b></label><input id="s-ff" type="range" min="0" max="1" step="0.01" value="1"></div>
+  <div class="campo"><label>Desenfoque <b id="v-blur">0</b></label><input id="s-blur" type="range" min="0" max="100" step="1" value="0"></div>
+  <div class="grupo">Piso</div>
+  <div class="campo"><label>Feather borde <b id="v-fea">0.35</b></label><input id="s-fea" type="range" min="0" max="0.95" step="0.01" value="0.35"></div>
+  <div class="campo"><label>Opacidad piso <b id="v-po">1.00</b></label><input id="s-po" type="range" min="0" max="1" step="0.02" value="1"></div>
+  <div class="nota">Cuando encuentres los valores buenos, copialos al bloque CONFIG del archivo.</div>
+</div>
+<div id="pista" class="oculto">Arrastrá para girar · rueda para zoom · botón derecho para mover</div>
+<div id="controles">
+  <button id="btn-reset" title="Vista inicial"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg></button>
+  <button id="btn-auto" title="Girar solo" class="activo"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v5h-5"/></svg></button>
+  <div class="sep"></div>
+  <button id="btn-menos" title="Alejar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M21 21l-4.3-4.3"/></svg></button>
+  <button id="btn-mas" title="Acercar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M11 8v6M8 11h6M21 21l-4.3-4.3"/></svg></button>
+  <div class="sep"></div>
+  <button id="btn-ficha" title="Datos"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+</div>
+<div id="carga"><div class="anillo"></div><div class="pct" id="pct">Cargando 0%</div><div class="sub">Preparando la escena 3D</div></div>
+<div id="err"><div><div class="t">No se pudo cargar</div><div class="d">Revisá que el .sog, el .glb y las texturas (domo360.jpg, piso.jpg) estén junto al visor y que lo abras desde un servidor.</div></div></div>
+<script type="module">
+import * as pc from 'https://cdn.jsdelivr.net/npm/playcanvas@2.13.3/build/playcanvas.mjs';
+const C=window.CONFIG;
+const q=new URLSearchParams(location.search);
+['splat','titulo','subtitulo','precio','descripcion'].forEach(k=>{ if(q.get(k)!==null) C[k]=q.get(k); });
+if(q.get('rot')){ const r=q.get('rot').split(',').map(Number); if(r.length===3) C.rotacion=r; }
+(function(){ const el=document.getElementById('ficha'); let h='';
+  if(C.marca)h+='<div class="et">'+C.marca+'</div>'; if(C.titulo)h+='<h1>'+C.titulo+'</h1>';
+  if(C.subtitulo)h+='<div class="sub">'+C.subtitulo+'</div>';
+  const ks=C.datos?Object.keys(C.datos).filter(k=>C.datos[k]):[];
+  if(ks.length){h+='<div class="datos">';for(const k of ks)h+='<div class="fila"><span class="k">'+k+'</span><span class="v">'+C.datos[k]+'</span></div>';h+='</div>';}
+  if(C.precio)h+='<div class="precio"><span class="k">Precio</span><span class="v">'+C.precio+'</span></div>';
+  if(C.descripcion)h+='<div class="desc">'+C.descripcion+'</div>';
+  el.innerHTML=h; if(!h.trim())el.style.display='none'; })();
+const canvas=document.createElement('canvas'); document.body.appendChild(canvas);
+const app=new pc.Application(canvas,{graphicsDeviceOptions:{alpha:true,antialias:true}});
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW); app.setCanvasResolution(pc.RESOLUTION_AUTO);
+app.graphicsDevice.maxPixelRatio=Math.min(window.devicePixelRatio,3);
+window.addEventListener('resize',()=>app.resizeCanvas());
+const cam=new pc.Entity('camara');
+cam.addComponent('camera',{clearColor:new pc.Color(0,0,0,1),clearColorBuffer:true,fov:45});
+app.root.addChild(cam);
+const O={distancia:3.2,distMin:0.4,distMax:60,distInicial:3.2,yaw:45,pitch:-14,objetivo:new pc.Vec3(0,0,0),centroBase:new pc.Vec3(0,0,0)};
+function aplicar(){ const p=O.pitch*pc.math.DEG_TO_RAD,y=O.yaw*pc.math.DEG_TO_RAD;
+  cam.setPosition(O.objetivo.x+O.distancia*Math.cos(p)*Math.sin(y),O.objetivo.y-O.distancia*Math.sin(p),O.objetivo.z+O.distancia*Math.cos(p)*Math.cos(y));
+  cam.lookAt(O.objetivo); }
+let autoRotar=C.autoRotar;
+function frenar(){autoRotar=false;document.getElementById('btn-auto').classList.remove('activo');document.getElementById('pista').classList.add('oculto');}
+let modo=null,uX=0,uY=0;
+canvas.addEventListener('pointerdown',(e)=>{modo=(e.button===2||e.button===1)?'pan':'orbit';uX=e.clientX;uY=e.clientY;frenar();canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',(e)=>{if(!modo)return;const dx=e.clientX-uX,dy=e.clientY-uY;
+  if(modo==='orbit'){O.yaw-=dx*0.35;O.pitch=pc.math.clamp(O.pitch-dy*0.35,-89,89);}
+  else{const s=O.distancia*0.0016;O.objetivo.add(cam.right.clone().mulScalar(-dx*s)).add(cam.up.clone().mulScalar(dy*s));}
+  uX=e.clientX;uY=e.clientY;aplicar();});
+canvas.addEventListener('pointerup',()=>modo=null);
+canvas.addEventListener('contextmenu',(e)=>e.preventDefault());
+canvas.addEventListener('wheel',(e)=>{e.preventDefault();frenar();O.distancia=pc.math.clamp(O.distancia+e.deltaY*0.0015*O.distancia,O.distMin,O.distMax);aplicar();},{passive:false});
+let pP=0,tX=0,tY=0;
+canvas.addEventListener('touchmove',(e)=>{if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+  const d=Math.hypot(dx,dy),cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+  if(pP){O.distancia=pc.math.clamp(O.distancia-(d-pP)*0.02,O.distMin,O.distMax);const s=O.distancia*0.002;
+    O.objetivo.add(cam.right.clone().mulScalar(-(cx-tX)*s)).add(cam.up.clone().mulScalar((cy-tY)*s));}
+  pP=d;tX=cx;tY=cy;frenar();aplicar();}},{passive:true});
+canvas.addEventListener('touchend',()=>pP=0);
+app.on('update',(dt)=>{if(autoRotar){O.yaw+=dt*C.velocidadGiro;aplicar();}});
+function vistaInicial(){O.objetivo.copy(O.centroBase);O.yaw=45;O.pitch=-14;O.distancia=O.distInicial;aplicar();}
+document.getElementById('btn-reset').onclick=vistaInicial;
+document.getElementById('btn-auto').onclick=(e)=>{autoRotar=!autoRotar;e.currentTarget.classList.toggle('activo',autoRotar);if(autoRotar)document.getElementById('pista').classList.add('oculto');};
+document.getElementById('btn-mas').onclick=()=>{frenar();O.distancia=pc.math.clamp(O.distancia*0.8,O.distMin,O.distMax);aplicar();};
+document.getElementById('btn-menos').onclick=()=>{frenar();O.distancia=pc.math.clamp(O.distancia*1.25,O.distMin,O.distMax);aplicar();};
+document.getElementById('btn-ficha').onclick=()=>document.getElementById('ficha').classList.toggle('oculto');
+
+let escenarioEnt=null, cilindroEnt=null, matPared=null, matPiso=null, imgPared=null, imgPisoGlobal=null;
+const D={ altura:C.altura||0, rotZ:C.rotZ||0, escala:C.escala||5,
+  hc:(C.alturaCilindro==null?1:C.alturaCilindro), poy:C.paredOffsetY||0,
+  fi:(C.fadeInicio==null?0.55:C.fadeInicio), fs:(C.fadeSuavidad==null?0.35:C.fadeSuavidad),
+  ff:(C.fadeFuerza==null?1:C.fadeFuerza), fea:(C.pisoFeather==null?0.35:C.pisoFeather),
+  po:(C.pisoOpacidad==null?1:C.pisoOpacidad), blur:C.blur||0 };
+
+// Textura de PARED: blur opcional + fade a negro hacia arriba con inicio y suavidad.
+// El fade se hornea. Asumo V=0 abajo (piso) y V=1 arriba (techo). Si tu UV está al
+// revés, invertí fi -> 1-fi mentalmente, o avisá y lo doy vuelta.
+function texturaPared(){
+  const cv=document.createElement('canvas');
+  const w=Math.min(imgPared.naturalWidth,4096), h=Math.round(w*imgPared.naturalHeight/imgPared.naturalWidth);
+  cv.width=w; cv.height=h; const ctx=cv.getContext('2d');
+  if(D.blur>0) ctx.filter='blur('+(D.blur/100*20)+'px)';
+  ctx.drawImage(imgPared,0,0,w,h); ctx.filter='none';
+  // gradiente vertical. En canvas, y=0 es ARRIBA de la imagen.
+  // Si arriba de la imagen corresponde al techo, oscurecemos y bajo (0..).
+  const g=ctx.createLinearGradient(0,0,0,h);
+  // punto donde arranca lo negro total (techo) y donde termina el fade
+  const finNegro = 1 - D.fi;          // fracción desde arriba donde ya no hay negro
+  const iniNegro = Math.max(0, finNegro - D.fs); // arranque del degradado
+  g.addColorStop(0, 'rgba(0,0,0,'+D.ff+')');
+  g.addColorStop(pc.math.clamp(iniNegro,0.001,0.998),'rgba(0,0,0,'+D.ff+')');
+  g.addColorStop(pc.math.clamp(finNegro,0.002,0.999),'rgba(0,0,0,0)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  const t=new pc.Texture(app.graphicsDevice,{name:'pared',
+    addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE,
+    minFilter:pc.FILTER_LINEAR_MIPMAP_LINEAR,magFilter:pc.FILTER_LINEAR,mipmaps:true,anisotropy:8});
+  t.setSource(cv); return t;
+}
+// Textura de PISO con feather (alpha radial) y opacidad general
+function texturaPiso(img){
+  const cv=document.createElement('canvas'); const s=Math.min(img.naturalWidth,2048);
+  cv.width=s; cv.height=s; const ctx=cv.getContext('2d');
+  ctx.drawImage(img,0,0,s,s);
+  const g=ctx.createRadialGradient(s/2,s/2,s/2*(1-D.fea),s/2,s/2,s/2);
+  g.addColorStop(0,'rgba(255,255,255,'+D.po+')'); g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.globalCompositeOperation='destination-in';
+  ctx.fillStyle=g; ctx.fillRect(0,0,s,s);
+  ctx.globalCompositeOperation='source-over';
+  const t=new pc.Texture(app.graphicsDevice,{name:'piso',addressU:pc.ADDRESS_CLAMP_TO_EDGE,addressV:pc.ADDRESS_CLAMP_TO_EDGE,
+    minFilter:pc.FILTER_LINEAR_MIPMAP_LINEAR,magFilter:pc.FILTER_LINEAR,mipmaps:true,anisotropy:8});
+  t.setSource(cv); return t;
+}
+function aplicarTransform(){ if(!escenarioEnt)return;
+  escenarioEnt.setLocalScale(D.escala,D.escala,D.escala);
+  escenarioEnt.setPosition(O.centroBase.x,O.centroBase.y+D.altura*0.01,O.centroBase.z);
+  escenarioEnt.setLocalEulerAngles(0,D.rotZ,0);
+  // achicar el cilindro en Y (baja el techo). El origen del cilindro está en su base,
+  // así que escalar en Y crece/decrece desde abajo -> el techo baja.
+  if(cilindroEnt) cilindroEnt.setLocalScale(1, D.hc, 1);
+}
+function aplicarUVPared(){ if(!matPared)return;
+  matPared.emissiveMapOffset=new pc.Vec2(0,D.poy);
+  matPared.emissiveMapTiling=new pc.Vec2(1,1);
+  matPared.update(); }
+
+function cargarEscenario(cb){
+  const imgP=new Image(); imgP.crossOrigin='anonymous';
+  imgP.onload=()=>{ imgPared=imgP; const texP=texturaPared();
+    const imgF=new Image(); imgF.crossOrigin='anonymous';
+    imgF.onload=()=>{ imgPisoGlobal=imgF; montar(texP,texturaPiso(imgF),cb); };
+    imgF.onerror=()=>{ console.warn('piso.jpg no carga, uso gris'); montar(texP,null,cb); };
+    imgF.src=C.texturaPiso; };
+  imgP.onerror=()=>{ console.warn('textura pared no carga'); cb&&cb(); };
+  imgP.src=C.texturaPared;
+}
+function montar(texP,texF,cb){
+  app.assets.loadFromUrl(C.modelo,'container',(err,asset)=>{
+    if(err){ console.warn('GLB error',err); cb&&cb(); return; }
+    const ent=asset.resource.instantiateRenderEntity(); escenarioEnt=ent;
+    // Paredes: emisivo, ambas caras (por si las normales están invertidas), textura con fade
+    matPared=new pc.StandardMaterial();
+    matPared.useLighting=false; matPared.emissive=new pc.Color(1,1,1);
+    matPared.emissiveMap=texP; matPared.cull=pc.CULLFACE_BACK; matPared.depthWrite=true; matPared.update();
+    // Piso: emisivo con alpha (feather)
+    matPiso=new pc.StandardMaterial();
+    matPiso.useLighting=false; matPiso.emissive=new pc.Color(1,1,1);
+    if(texF){ matPiso.emissiveMap=texF; matPiso.opacityMap=texF; matPiso.blendType=pc.BLEND_NORMAL; }
+    else { matPiso.emissive=new pc.Color(0.5,0.5,0.52); }
+    matPiso.cull=pc.CULLFACE_NONE; matPiso.depthWrite=false; matPiso.update();
+    // Asignar por nombre de nodo
+    const renders=ent.findComponents('render');
+    renders.forEach(r=>{ const nombre=(r.entity.name||'').toLowerCase();
+      if(nombre.includes('cilindro')){ cilindroEnt=r.entity; r.meshInstances.forEach(mi=>mi.material=matPared); }
+      else if(nombre.includes('base')){ r.meshInstances.forEach(mi=>mi.material=matPiso); }
+      else { r.meshInstances.forEach(mi=>mi.material=matPared); } });
+    app.root.addChild(ent);
+    aplicarUVPared(); aplicarTransform(); cb&&cb();
+  });
+}
+function cargarSplat(){
+  const asset=new pc.Asset('splat','gsplat',{url:C.splat});
+  asset.on('progress',(r,t)=>{if(t)document.getElementById('pct').textContent='Cargando '+Math.min(100,Math.round(r/t*100))+'%';});
+  asset.on('error',(e)=>{console.error(e);document.getElementById('carga').style.display='none';document.getElementById('err').style.display='flex';});
+  asset.ready(()=>{
+    const ent=new pc.Entity('splat');
+    ent.addComponent('gsplat',{asset,highQualitySH:true});
+    ent.setLocalEulerAngles(C.rotacion[0],C.rotacion[1],C.rotacion[2]);
+    app.root.addChild(ent);
+    try{ const inst=ent.gsplat&&ent.gsplat.instance; const aabb=inst&&inst.meshInstance&&inst.meshInstance.aabb;
+      if(aabb){ O.objetivo.copy(aabb.center); O.centroBase.copy(aabb.center);
+        const rad=aabb.halfExtents.length(); O.distancia=rad*2.4; O.distInicial=rad*2.4; O.distMin=rad*0.35; O.distMax=rad*30;
+        if(C.sombra){ const s=document.createElement('canvas');s.width=s.height=256;const sc=s.getContext('2d');
+          const g=sc.createRadialGradient(128,128,10,128,128,124);g.addColorStop(0,'rgba(0,0,0,0.5)');g.addColorStop(0.6,'rgba(0,0,0,0.25)');g.addColorStop(1,'rgba(0,0,0,0)');
+          sc.fillStyle=g;sc.fillRect(0,0,256,256);const st=new pc.Texture(app.graphicsDevice,{name:'sombra',mipmaps:true});st.setSource(s);
+          const sm=new pc.StandardMaterial();sm.useLighting=false;sm.emissive=new pc.Color(0,0,0);sm.opacityMap=st;sm.blendType=pc.BLEND_NORMAL;sm.depthWrite=false;sm.update();
+          const sh=new pc.Entity('sombra');sh.addComponent('render',{type:'plane'});sh.render.material=sm;
+          const ex=aabb.halfExtents;sh.setPosition(aabb.center.x,aabb.center.y-ex.y*0.98,aabb.center.z);sh.setLocalScale(ex.x*3.2,1,ex.z*3.2);app.root.addChild(sh);}
+        if(escenarioEnt) aplicarTransform();
+      } else O.distInicial=O.distancia;
+    }catch(e){O.distInicial=O.distancia;}
+    aplicar();
+    setTimeout(()=>{document.getElementById('carga').classList.add('oculto');
+      if(autoRotar)document.getElementById('pista').classList.remove('oculto');
+      setTimeout(()=>document.getElementById('pista').classList.add('oculto'),4500);},300);
+  });
+  app.assets.add(asset); app.assets.load(asset);
+}
+if(C.usarEscenario){
+  document.getElementById('btn-ajustes').style.display='flex';
+  const panel=document.getElementById('ajustes');
+  document.getElementById('btn-ajustes').onclick=()=>panel.classList.toggle('oculto');
+  document.getElementById('cerrar-ajustes').onclick=()=>panel.classList.add('oculto');
+  panel.classList.remove('oculto');
+  const g=id=>document.getElementById(id); const set=(id,v)=>{g(id).textContent=v;};
+  g('s-alt').value=D.altura; g('s-rot').value=D.rotZ; g('s-esc').value=D.escala;
+  g('s-hc').value=D.hc; g('s-poy').value=D.poy; g('s-fi').value=D.fi; g('s-fs').value=D.fs; g('s-ff').value=D.ff;
+  g('s-blur').value=D.blur; g('s-fea').value=D.fea; g('s-po').value=D.po;
+  set('v-alt',D.altura);set('v-rot',D.rotZ+'°');set('v-esc',(+D.escala).toFixed(1));
+  set('v-hc',(+D.hc).toFixed(2));set('v-poy',(+D.poy).toFixed(3));set('v-fi',(+D.fi).toFixed(2));
+  set('v-fs',(+D.fs).toFixed(2));set('v-ff',(+D.ff).toFixed(2));set('v-blur',D.blur);
+  set('v-fea',(+D.fea).toFixed(2));set('v-po',(+D.po).toFixed(2));
+  g('s-alt').addEventListener('input',e=>{D.altura=+e.target.value;set('v-alt',D.altura);aplicarTransform();});
+  g('s-rot').addEventListener('input',e=>{D.rotZ=+e.target.value;set('v-rot',D.rotZ+'°');aplicarTransform();});
+  g('s-esc').addEventListener('input',e=>{D.escala=+e.target.value;set('v-esc',D.escala.toFixed(1));aplicarTransform();});
+  g('s-hc').addEventListener('input',e=>{D.hc=+e.target.value;set('v-hc',D.hc.toFixed(2));aplicarTransform();});
+  g('s-poy').addEventListener('input',e=>{D.poy=+e.target.value;set('v-poy',D.poy.toFixed(3));aplicarUVPared();});
+  let ft=null;
+  const regenPared=()=>{clearTimeout(ft);ft=setTimeout(()=>{if(matPared&&imgPared){matPared.emissiveMap=texturaPared();aplicarUVPared();}},80);};
+  g('s-fi').addEventListener('input',e=>{D.fi=+e.target.value;set('v-fi',D.fi.toFixed(2));regenPared();});
+  g('s-fs').addEventListener('input',e=>{D.fs=+e.target.value;set('v-fs',D.fs.toFixed(2));regenPared();});
+  g('s-ff').addEventListener('input',e=>{D.ff=+e.target.value;set('v-ff',D.ff.toFixed(2));regenPared();});
+  g('s-blur').addEventListener('input',e=>{D.blur=+e.target.value;set('v-blur',D.blur);regenPared();});
+  const regenPiso=()=>{clearTimeout(ft);ft=setTimeout(()=>{ if(matPiso&&imgPisoGlobal){const t=texturaPiso(imgPisoGlobal);matPiso.emissiveMap=t;matPiso.opacityMap=t;matPiso.update();} },80);};
+  g('s-fea').addEventListener('input',e=>{D.fea=+e.target.value;set('v-fea',D.fea.toFixed(2));regenPiso();});
+  g('s-po').addEventListener('input',e=>{D.po=+e.target.value;set('v-po',D.po.toFixed(2));regenPiso();});
+  window.addEventListener('keydown',e=>{if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;e.preventDefault();
+    D.altura=pc.math.clamp(D.altura+(e.shiftKey?50:10)*(e.key==='ArrowUp'?1:-1),-2000,2000);
+    g('s-alt').value=D.altura;set('v-alt',D.altura);aplicarTransform();});
+}
+if(C.usarEscenario){ cargarEscenario(()=>cargarSplat()); } else { cargarSplat(); }
+app.start(); aplicar();
+</script>
+</body>
+</html>

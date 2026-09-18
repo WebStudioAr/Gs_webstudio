@@ -1,0 +1,76 @@
+========================================================
+  KIT VISOR 3D — WEBSTUDIO
+  Recorridos de vehículos en Gaussian Splatting
+========================================================
+
+--------------------------------------------------------
+QUÉ VA EN ESTA CARPETA
+--------------------------------------------------------
+Archivos que YA vienen:
+  visor.html          El visor. Se configura arriba de todo (bloque CONFIG).
+  base-cilindro.glb   El escenario (cilindro paredes + base piso). No se toca.
+  domo360.jpg         Textura de las PAREDES del cilindro.
+
+Archivos que TENÉS QUE AGREGAR (borrá los _PONER_...txt cuando los pongas):
+  moto-scan.sog       EL SPLAT DEL VEHÍCULO. Lo vas cambiando por cada auto/moto.
+  piso.jpg            La textura del PISO.
+
+Todos los archivos van SUELTOS en esta misma carpeta (sin subcarpetas).
+
+--------------------------------------------------------
+CONFIGURAR PARA UN VEHÍCULO (editar visor.html)
+--------------------------------------------------------
+Abrí visor.html con el Bloc de notas. Arriba, en window.CONFIG:
+  - splat:  'moto-scan.sog'   -> nombre de tu archivo .sog
+  - titulo, subtitulo, precio, datos, descripcion
+  - rotacion: si el vehículo sale dado vuelta probá [180,0,0]
+
+Los sliders del panel (arriba a la derecha al abrir el visor) ajustan
+el escenario en vivo. Cuando encuentres los valores buenos, copialos
+al CONFIG (altura, escala, alturaCilindro, fadeInicio, etc.).
+
+--------------------------------------------------------
+OPCIÓN A — SUBIRLO A RENDER (para verlo en cualquier PC)
+--------------------------------------------------------
+Render sirve un sitio estático gratis. Pasos:
+
+1. Creá una cuenta en https://render.com (gratis).
+2. Subí esta carpeta a un repositorio de GitHub (o usá "Deploy from Git").
+   Alternativa sin Git: en Render, New > Static Site > y subís la carpeta.
+3. Configuración del Static Site:
+     - Build Command:  (dejalo vacío)
+     - Publish Directory:  .   (un punto, o el nombre de esta carpeta)
+4. Deploy. Render te da una URL tipo  https://tu-visor.onrender.com
+   Entrá a esa URL y ya funciona en cualquier PC, sin instalar nada.
+
+IMPORTANTE para Render:
+  - Los archivos .sog y .glb son grandes. Render Static los sirve bien.
+  - El .sog puede pesar decenas de MB: la primera carga tarda un poco.
+  - Todo debe estar en la misma carpeta que visor.html.
+
+--------------------------------------------------------
+OPCIÓN B — PROBARLO LOCAL (en tu PC, sin subir nada)
+--------------------------------------------------------
+El visor NO funciona con doble clic (por seguridad del navegador).
+Necesita un servidor local. La forma más simple si tenés Python:
+  1. Abrí una terminal en esta carpeta
+  2. python -m http.server 8080
+  3. Entrá a  http://localhost:8080/visor.html
+
+--------------------------------------------------------
+PARA CLAUDE / COWORK (referencia)
+--------------------------------------------------------
+Plantilla base del visor de Webstudio. Renderiza un Gaussian
+Splatting (.sog) con el engine de PlayCanvas (via CDN), dentro de un
+escenario GLB con dos partes nombradas "Cilindro" (paredes, textura
+domo360.jpg con fade a negro hacia arriba) y "Base" (piso, textura
+piso.jpg con feather en el borde). Toda la config por vehículo está
+en window.CONFIG al inicio de visor.html.
+
+Al pedir un visor nuevo o una galería de concesionaria:
+  - Reutilizá visor.html como base (no reescribas el engine).
+  - Cada vehículo = un .sog + datos en CONFIG (o por URL:
+    visor.html?splat=auto.sog&titulo=...&precio=...).
+  - El escenario (base-cilindro.glb + texturas) es compartido.
+  - Identidad Webstudio: azul #2563EB, celeste #38BDF8,
+    ámbar #F5B544, fondo oscuro, tipografía limpia.

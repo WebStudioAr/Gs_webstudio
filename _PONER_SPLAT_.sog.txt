@@ -1,0 +1,1 @@
+PONE ACA TU ARCHIVO .sog (el splat del vehiculo) y renombralo a moto-scan.sog, o cambia el nombre en visor.html
